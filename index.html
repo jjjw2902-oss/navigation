@@ -1,0 +1,2793 @@
+<!doctype html>
+<html lang="ko"><head>
+    
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>경로 이탈 감지기 — 실시간 경로 추적 시뮬레이터</title>
+    <meta name="description" content="예정된 이동 경로와 현재 위치를 실시간으로 비교해 경로 이탈 여부를 즉시 감지하고 복귀를 안내하는 인터랙티브 시뮬레이터입니다.">
+    <meta property="og:title" content="경로 이탈 감지기 — 실시간 경로 추적 시뮬레이터">
+    <meta property="og:description" content="예정된 이동 경로와 현재 위치를 실시간으로 비교해 경로 이탈 여부를 즉시 감지하고 복귀를 안내하는 인터랙티브 시뮬레이터입니다.">
+    <meta property="og:type" content="website">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&amp;family=Noto+Sans+KR:wght@400;500;600;700&amp;family=Plus+Jakarta+Sans:wght@500;600;700&amp;display=swap" rel="stylesheet">
+    <style>
+      :root {
+        --font-sans: "Plus Jakarta Sans", "Noto Sans KR", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        --font-mono: "JetBrains Mono", "Noto Sans KR", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+        --bg-canvas: #f8fafc;
+        --bg-surface: #ffffff;
+        --bg-subtle: #f1f5f9;
+        --bg-code: #020617;
+        --bg-code-bar: #0f172a;
+
+        --border-hairline: #e2e8f0;
+        --border-strong: #cbd5e1;
+
+        --text-primary: #0f172a;
+        --text-secondary: #475569;
+        --text-muted: #64748b;
+
+        --accent-blue: #2563eb;
+        --accent-blue-hover: #1d4ed8;
+        --accent-blue-soft: #eff6ff;
+
+        --status-ok: #059669;
+        --status-ok-bg: #ecfdf5;
+        --status-ok-border: #a7f3d0;
+        --status-ok-text: #064e3b;
+
+        --status-err: #dc2626;
+        --status-err-hover: #b91c1c;
+        --status-err-bg: #fef2f2;
+        --status-err-border: #fecaca;
+        --status-err-text: #7f1d1d;
+
+        --radius-sm: 6px;
+        --radius-md: 8px;
+        --radius-lg: 12px;
+      }
+
+      *,
+      *::before,
+      *::after {
+        box-sizing: border-box;
+      }
+
+      html {
+        scroll-behavior: smooth;
+      }
+
+      body {
+        margin: 0;
+        font-family: var(--font-sans);
+        background-color: var(--bg-canvas);
+        color: var(--text-primary);
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+      }
+
+      code,
+      pre,
+      .mono {
+        font-family: var(--font-mono);
+      }
+
+      .tabular-nums {
+        font-variant-numeric: tabular-nums;
+      }
+
+      button,
+      input {
+        font-family: inherit;
+      }
+
+      button:focus-visible,
+      input:focus-visible,
+      a:focus-visible,
+      [tabindex]:focus-visible {
+        outline: 2px solid var(--accent-blue);
+        outline-offset: 2px;
+      }
+
+      /* Header - Strict 3-Zone Top Bar Contract */
+      .topbar {
+        background-color: var(--bg-surface);
+        border-bottom: 1px solid var(--border-hairline);
+        position: sticky;
+        top: 0;
+        z-index: 30;
+      }
+
+      .topbar-inner {
+        max-width: 1320px;
+        margin: 0 auto;
+        padding: 0 24px;
+        height: 64px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 32px;
+      }
+
+      .brand {
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        color: var(--text-primary);
+        text-decoration: none;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+
+      .topnav {
+        display: none;
+        align-items: center;
+        gap: 24px;
+      }
+
+      .topnav-link {
+        background: none;
+        border: none;
+        padding: 4px 0;
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--text-secondary);
+        cursor: pointer;
+        white-space: nowrap;
+        flex-shrink: 0;
+        transition: color 150ms ease;
+      }
+
+      .topnav-link:hover {
+        color: var(--text-primary);
+        text-decoration: underline;
+        text-underline-offset: 4px;
+      }
+
+      @media (min-width: 768px) {
+        .topnav {
+          display: flex;
+        }
+      }
+
+      /* Buttons */
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 8px 16px;
+        font-size: 12.5px;
+        font-weight: 600;
+        border-radius: var(--radius-md);
+        border: 1px solid transparent;
+        cursor: pointer;
+        white-space: nowrap;
+        flex-shrink: 0;
+        transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease;
+      }
+
+      .btn:disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+      }
+
+      .btn-primary {
+        background-color: var(--accent-blue);
+        color: #ffffff;
+      }
+
+      .btn-primary:hover:not(:disabled) {
+        background-color: var(--accent-blue-hover);
+      }
+
+      .btn-dark {
+        background-color: var(--text-primary);
+        color: #ffffff;
+      }
+
+      .btn-dark:hover:not(:disabled) {
+        background-color: #1e293b;
+      }
+
+      .btn-outline {
+        background-color: var(--bg-surface);
+        border-color: var(--border-strong);
+        color: #334155;
+      }
+
+      .btn-outline:hover:not(:disabled) {
+        background-color: var(--bg-canvas);
+      }
+
+      .btn-soft {
+        background-color: var(--bg-surface);
+        border-color: var(--border-hairline);
+        color: var(--text-secondary);
+      }
+
+      .btn-soft:hover:not(:disabled) {
+        background-color: var(--bg-canvas);
+      }
+
+      .btn-danger-soft {
+        background-color: var(--status-err-bg);
+        border-color: var(--status-err-border);
+        color: var(--status-err-hover);
+      }
+
+      .btn-danger-soft:hover:not(:disabled) {
+        background-color: #fee2e2;
+      }
+
+      .btn-danger {
+        background-color: var(--status-err);
+        color: #ffffff;
+      }
+
+      .btn-danger:hover:not(:disabled) {
+        background-color: var(--status-err-hover);
+      }
+
+      .btn-sm {
+        padding: 6px 12px;
+        font-size: 12px;
+      }
+
+      /* Main Layout */
+      .container {
+        flex: 1;
+        width: 100%;
+        max-width: 1320px;
+        margin: 0 auto;
+        padding: 28px 24px 36px;
+        display: flex;
+        flex-direction: column;
+        gap: 24px;
+      }
+
+      .intro-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 16px;
+      }
+
+      .intro-title {
+        margin: 0;
+        font-size: clamp(22px, 2.2vw, 26px);
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        color: var(--text-primary);
+        text-wrap: balance;
+      }
+
+      .intro-desc {
+        margin: 6px 0 0;
+        font-size: 14px;
+        color: var(--text-secondary);
+        max-width: 68ch;
+      }
+
+      .intro-desc code {
+        font-size: 13px;
+        color: var(--text-primary);
+        background-color: var(--bg-subtle);
+        padding: 1px 5px;
+        border-radius: 4px;
+      }
+
+      .meta-strip {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 12.5px;
+        color: var(--text-muted);
+      }
+
+      .workspace-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 24px;
+        align-items: start;
+      }
+
+      @media (min-width: 1024px) {
+        .workspace-grid {
+          grid-template-columns: minmax(0, 8fr) minmax(0, 4fr);
+        }
+      }
+
+      .stage-col,
+      .deck-col {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        min-width: 0;
+      }
+
+      /* Cards (Single-Elevation Depth) */
+      .panel {
+        background-color: var(--bg-surface);
+        border: 1px solid var(--border-hairline);
+        border-radius: var(--radius-lg);
+        overflow: hidden;
+      }
+
+      .panel-pad {
+        padding: 20px;
+      }
+
+      .panel-header {
+        padding: 14px 20px;
+        border-bottom: 1px solid var(--border-hairline);
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .panel-title {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+
+      .panel-subtitle {
+        margin: 2px 0 0;
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+
+      /* Status Banner */
+      .status-banner {
+        padding: 14px 20px;
+        border-bottom: 1px solid var(--border-hairline);
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        transition: background-color 200ms ease, border-color 200ms ease;
+      }
+
+      .status-banner.is-off {
+        background-color: var(--status-err-bg);
+        border-bottom-color: var(--status-err-border);
+        color: var(--status-err-text);
+      }
+
+      .status-banner.is-arrived {
+        background-color: var(--status-ok-bg);
+        border-bottom-color: var(--status-ok-border);
+        color: var(--status-ok-text);
+      }
+
+      .status-banner.is-on {
+        background-color: #f8fafc;
+        border-bottom-color: var(--border-hairline);
+        color: var(--text-primary);
+      }
+
+      .status-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+      }
+
+      .status-msg {
+        margin: 0;
+        font-size: 14px;
+        font-weight: 600;
+      }
+
+      .status-meta {
+        margin: 2px 0 0;
+        font-size: 12px;
+        color: var(--text-secondary);
+      }
+
+      .status-hint {
+        font-size: 12px;
+        font-weight: 500;
+        color: var(--text-secondary);
+        white-space: nowrap;
+      }
+
+      /* SVG Route Map */
+      .canvas-wrap {
+        background-color: #f8fafc;
+        width: 100%;
+      }
+
+      #route-svg {
+        width: 100%;
+        height: auto;
+        display: block;
+        user-select: none;
+      }
+
+      .svg-node {
+        cursor: pointer;
+      }
+
+      .svg-node:hover .node-hover-ring {
+        opacity: 0.35;
+      }
+
+      .traveler-marker {
+        transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1);
+        pointer-events: none;
+      }
+
+      .legend-strip {
+        padding: 10px 20px;
+        background-color: rgba(255, 255, 255, 0.92);
+        border-top: 1px solid var(--border-hairline);
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        font-size: 12px;
+        color: var(--text-secondary);
+      }
+
+      .legend-items {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .legend-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .dot-blue {
+        width: 11px;
+        height: 11px;
+        border-radius: 50%;
+        background-color: var(--accent-blue);
+        display: inline-block;
+      }
+
+      .dot-green {
+        width: 11px;
+        height: 11px;
+        border-radius: 50%;
+        background-color: var(--status-ok);
+        display: inline-block;
+      }
+
+      .tri-red {
+        width: 0;
+        height: 0;
+        border-left: 6px solid transparent;
+        border-right: 6px solid transparent;
+        border-bottom: 10px solid var(--status-err);
+        display: inline-block;
+      }
+
+      .stage-controls {
+        padding: 14px 20px;
+        background-color: var(--bg-surface);
+        border-top: 1px solid var(--border-hairline);
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+      }
+
+      .control-group {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .slider-group {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-size: 12px;
+        color: var(--text-secondary);
+        font-weight: 500;
+      }
+
+      .slider-group input[type="range"] {
+        width: 112px;
+        accent-color: var(--accent-blue);
+        cursor: pointer;
+      }
+
+      /* Right Deck Controls */
+      .verdict-box {
+        padding: 14px;
+        border-radius: var(--radius-md);
+        border: 1px solid;
+        font-size: 12.5px;
+        line-height: 1.5;
+      }
+
+      .verdict-box.is-ok {
+        background-color: var(--status-ok-bg);
+        border-color: var(--status-ok-border);
+        color: var(--status-ok-text);
+      }
+
+      .verdict-box.is-off {
+        background-color: var(--status-err-bg);
+        border-color: var(--status-err-border);
+        color: var(--status-err-text);
+      }
+
+      .verdict-head {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-weight: 600;
+      }
+
+      .verdict-text {
+        margin: 6px 0 0;
+        color: #334155;
+      }
+
+      .input-row {
+        display: flex;
+        gap: 8px;
+      }
+
+      .text-input {
+        flex: 1;
+        min-width: 0;
+        padding: 8px 12px;
+        font-size: 13.5px;
+        color: var(--text-primary);
+        background-color: var(--bg-surface);
+        border: 1px solid var(--border-strong);
+        border-radius: var(--radius-md);
+      }
+
+      .field-label {
+        display: block;
+        font-size: 12px;
+        font-weight: 500;
+        color: #334155;
+        margin-bottom: 6px;
+      }
+
+      .quick-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+      }
+
+      .quick-btn {
+        padding: 6px 10px;
+        font-size: 12px;
+        font-weight: 500;
+        border-radius: var(--radius-sm);
+        border: 1px solid var(--border-hairline);
+        background-color: var(--bg-surface);
+        color: #334155;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: background-color 150ms ease, border-color 150ms ease;
+      }
+
+      .quick-btn:hover {
+        background-color: var(--bg-canvas);
+      }
+
+      .quick-btn.is-active-on {
+        background-color: var(--accent-blue);
+        border-color: var(--accent-blue);
+        color: #ffffff;
+      }
+
+      .quick-btn.is-off-node {
+        background-color: var(--status-err-bg);
+        border-color: var(--status-err-border);
+        color: var(--status-err-hover);
+        font-family: var(--font-mono);
+      }
+
+      .quick-btn.is-off-node:hover {
+        background-color: #fee2e2;
+      }
+
+      .quick-btn.is-active-off {
+        background-color: var(--status-err);
+        border-color: var(--status-err);
+        color: #ffffff;
+        font-family: var(--font-mono);
+        font-weight: 600;
+      }
+
+      .checkbox-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding-top: 12px;
+        border-top: 1px solid var(--bg-subtle);
+        font-size: 12px;
+        color: #334155;
+        cursor: pointer;
+        user-select: none;
+      }
+
+      .checkbox-row input {
+        width: 15px;
+        height: 15px;
+        accent-color: var(--accent-blue);
+        cursor: pointer;
+      }
+
+      /* Segmented Tabs */
+      .segmented {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 4px;
+        padding: 4px;
+        background-color: #e2e8f0;
+        border-radius: var(--radius-md);
+      }
+
+      .segmented-sm {
+        display: inline-flex;
+        gap: 4px;
+        padding: 3px;
+        background-color: var(--bg-subtle);
+        border-radius: var(--radius-md);
+      }
+
+      .tab-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        padding: 7px 12px;
+        font-size: 12px;
+        font-weight: 600;
+        border: none;
+        border-radius: 6px;
+        background: transparent;
+        color: var(--text-secondary);
+        cursor: pointer;
+        white-space: nowrap;
+        transition: background-color 150ms ease, color 150ms ease;
+      }
+
+      .tab-btn:hover {
+        color: var(--text-primary);
+      }
+
+      .tab-btn.is-active {
+        background-color: var(--bg-surface);
+        color: var(--text-primary);
+        box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
+      }
+
+      /* Editor Lists */
+      .section-divider {
+        border-top: 1px solid var(--border-hairline);
+      }
+
+      .preset-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      @media (min-width: 540px) {
+        .preset-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+
+      .preset-card {
+        text-align: left;
+        padding: 11px 12px;
+        border: 1px solid var(--border-hairline);
+        border-radius: var(--radius-md);
+        background-color: var(--bg-surface);
+        cursor: pointer;
+        transition: border-color 150ms ease, background-color 150ms ease;
+      }
+
+      .preset-card:hover {
+        background-color: var(--bg-canvas);
+      }
+
+      .preset-card.is-active {
+        border-color: var(--accent-blue);
+        background-color: var(--accent-blue-soft);
+      }
+
+      .preset-name {
+        font-size: 12.5px;
+        font-weight: 600;
+        color: var(--text-primary);
+      }
+
+      .preset-path {
+        margin-top: 3px;
+        font-size: 11px;
+        color: var(--text-muted);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .waypoint-list {
+        list-style: none;
+        margin: 12px 0 0;
+        padding: 0;
+        border: 1px solid var(--border-hairline);
+        border-radius: var(--radius-md);
+        overflow: hidden;
+      }
+
+      .waypoint-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        padding: 8px 12px;
+        background-color: var(--bg-surface);
+        border-bottom: 1px solid var(--bg-subtle);
+      }
+
+      .waypoint-item:last-child {
+        border-bottom: none;
+      }
+
+      .waypoint-item:hover {
+        background-color: var(--bg-canvas);
+      }
+
+      .wp-left {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        min-width: 0;
+      }
+
+      .wp-index {
+        width: 22px;
+        height: 22px;
+        border-radius: 4px;
+        background-color: var(--bg-subtle);
+        color: #334155;
+        font-family: var(--font-mono);
+        font-size: 11px;
+        font-weight: 600;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+      }
+
+      .wp-label {
+        font-size: 13.5px;
+        font-weight: 500;
+        color: var(--text-primary);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .wp-role {
+        font-size: 11px;
+        color: var(--text-muted);
+        flex-shrink: 0;
+      }
+
+      .wp-role.is-end {
+        color: var(--status-ok);
+        font-weight: 600;
+      }
+
+      .icon-btn {
+        background: none;
+        border: none;
+        padding: 5px;
+        color: var(--text-muted);
+        border-radius: 4px;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .icon-btn:hover:not(:disabled) {
+        color: var(--text-primary);
+        background-color: var(--bg-subtle);
+      }
+
+      .icon-btn.is-delete:hover:not(:disabled) {
+        color: var(--status-err);
+        background-color: var(--status-err-bg);
+      }
+
+      .icon-btn:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+      }
+
+      .off-chip-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+      }
+
+      .off-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 6px 4px 10px;
+        background-color: var(--bg-canvas);
+        border: 1px solid var(--border-hairline);
+        border-radius: var(--radius-sm);
+        font-family: var(--font-mono);
+        font-size: 12px;
+        color: #334155;
+      }
+
+      /* Python Code View */
+      .code-body {
+        background-color: var(--bg-code);
+        color: #e2e8f0;
+        padding: 14px;
+        overflow-x: auto;
+        font-family: var(--font-mono);
+        font-size: 12px;
+        line-height: 1.65;
+      }
+
+      .code-line {
+        display: flex;
+        align-items: flex-start;
+        padding: 1px 8px;
+        border-radius: 4px;
+        white-space: pre;
+      }
+
+      .code-line.is-off {
+        background-color: rgba(239, 68, 68, 0.22);
+        color: #fecaca;
+      }
+
+      .code-line.is-on {
+        background-color: rgba(16, 185, 129, 0.2);
+        color: #a7f3d0;
+      }
+
+      .code-line.is-comment {
+        color: #94a3b8;
+      }
+
+      .line-num {
+        width: 26px;
+        text-align: right;
+        padding-right: 12px;
+        color: #64748b;
+        user-select: none;
+        flex-shrink: 0;
+      }
+
+      .stdout-bar {
+        padding: 11px 18px;
+        background-color: var(--bg-code-bar);
+        border-top: 1px solid #1e293b;
+        font-family: var(--font-mono);
+        font-size: 12px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .stdout-label {
+        color: #94a3b8;
+      }
+
+      .stdout-ok {
+        color: #6ee7b7;
+        font-weight: 500;
+      }
+
+      .stdout-err {
+        color: #fca5a5;
+        font-weight: 500;
+      }
+
+      /* Log Table */
+      .table-scroll {
+        overflow-x: auto;
+        max-height: 320px;
+        overflow-y: auto;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+      }
+
+      thead th {
+        position: sticky;
+        top: 0;
+        background-color: var(--bg-canvas);
+        border-bottom: 1px solid var(--border-hairline);
+        padding: 10px 16px;
+        font-size: 12px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        white-space: nowrap;
+      }
+
+      tbody td {
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--bg-subtle);
+        font-size: 12.5px;
+        color: #334155;
+      }
+
+      tbody tr:hover {
+        background-color: #f8fafc;
+      }
+
+      .log-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-weight: 600;
+        white-space: nowrap;
+      }
+
+      .log-status.is-off {
+        color: var(--status-err-hover);
+      }
+
+      .log-status.is-ok {
+        color: var(--status-ok);
+      }
+
+      .empty-state {
+        padding: 36px 20px;
+        text-align: center;
+        font-size: 13.5px;
+        color: var(--text-muted);
+      }
+
+      /* Footer */
+      .site-footer {
+        background-color: var(--bg-surface);
+        border-top: 1px solid var(--border-hairline);
+        margin-top: auto;
+      }
+
+      .footer-inner {
+        max-width: 1320px;
+        margin: 0 auto;
+        padding: 16px 24px;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        font-size: 12px;
+        color: var(--text-muted);
+      }
+
+      .hidden {
+        display: none !important;
+      }
+
+      @media (prefers-reduced-motion: reduce) {
+        *,
+        *::before,
+        *::after {
+          animation-duration: 0.01ms !important;
+          transition-duration: 0.01ms !important;
+          scroll-behavior: auto !important;
+        }
+      }
+    </style>
+  <script src="/_aistudio-iframe.js?v=29045eb3"></script><script src="https://cdn.jsdelivr.net/npm/html2canvas-pro@2.0.4"></script><style>.aistudio-hover-highlight { box-shadow: inset 0 0 0 0.5px white, inset 0 0 0 1.5px rgba(128,128,128,0.6) !important; }.aistudio-active-highlight { outline: 2px solid #87a9ff !important; outline-offset: -2px !important; box-shadow: 0 0 0 0.5px rgba(0,0,0,0.3), inset 0 0 0 0.5px rgba(0,0,0,0.3) !important; }.aistudio-generating-blur { filter: blur(5px) grayscale(100%) brightness(28%) !important; transition: filter 0.3s ease; }#aistudio-focus-mode-tag { position: absolute; display: none; align-items: center; gap: 4px; background: #87a9ff; border-radius: 12px; z-index: 10000; padding: 8px; color: #32302c; font-family: Inter, sans-serif; font-size: 14px; font-style: normal; font-weight: 500; line-height: 21px; pointer-events: none; }#aistudio-hover-mode-tag { position: absolute; display: none; align-items: center; gap: 4px; background: rgba(128,128,128,0.6); border-radius: 12px; z-index: 10000; padding: 8px; color: white; font-family: Inter, sans-serif; font-size: 14px; font-style: normal; font-weight: 500; line-height: 21px; pointer-events: none; }.aistudio-img-icon { display: none; vertical-align: middle; pointer-events: auto; cursor: pointer; }.aistudio-img-icon.visible { display: inline-flex; }#aistudio-focus-mode-tag .aistudio-img-icon { position: relative; width: 26px; height: 26px; background: #32302c; border-radius: 6px; margin: -4px -4px -4px 0; }#aistudio-focus-mode-tag .aistudio-img-icon::before { content: ""; position: absolute; top: 4px; left: 4px; width: 18px; height: 18px; background-color: white; -webkit-mask-image: url("https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/edit_fix_auto/default/24px.svg"); -webkit-mask-size: contain; -webkit-mask-repeat: no-repeat; mask-image: url("https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/edit_fix_auto/default/24px.svg"); mask-size: contain; mask-repeat: no-repeat; }#aistudio-hover-mode-tag .aistudio-img-icon { position: relative; width: 18px; height: 18px; margin-left: 4px; }#aistudio-hover-mode-tag .aistudio-img-icon::before { content: ""; position: absolute; top: 0; left: 0; width: 18px; height: 18px; background-color: white; -webkit-mask-image: url("https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/edit_fix_auto/default/24px.svg"); -webkit-mask-size: contain; -webkit-mask-repeat: no-repeat; mask-image: url("https://fonts.gstatic.com/s/i/short-term/release/googlesymbols/edit_fix_auto/default/24px.svg"); mask-size: contain; mask-repeat: no-repeat; }#aistudio-focus-mode-tag .aistudio-img-icon:hover, #aistudio-hover-mode-tag .aistudio-img-icon:hover { background: #424242 !important; }#aistudio-focus-mode-tag .aistudio-img-icon:active, #aistudio-hover-mode-tag .aistudio-img-icon:active { background: #393f51 !important; }</style></head>
+  <body>
+    <!-- Top Bar (3 Zones, 1 Row) -->
+    <header class="topbar">
+      <div class="topbar-inner">
+        <a href="#simulator" class="brand">경로 이탈 감지기</a>
+
+        <nav class="topnav" aria-label="주요 메뉴">
+          <button type="button" class="topnav-link" data-scroll="simulator">경로 시뮬레이션</button>
+          <button type="button" class="topnav-link" data-scroll="deck-panel" data-tab="editor">
+            경유지 편집
+          </button>
+          <button type="button" class="topnav-link" data-scroll="deck-panel" data-tab="python">
+            파이썬 코드
+          </button>
+          <button type="button" class="topnav-link" data-scroll="check-logs">점검 기록</button>
+        </nav>
+
+        <button type="button" id="btn-auto-toggle" class="btn btn-primary">
+          <span id="auto-btn-icon" aria-hidden="true"></span>
+          <span id="auto-btn-label">자동 주행 시작</span>
+        </button>
+      </div>
+    </header>
+
+    <main class="container">
+      <!-- Intro Header -->
+      <section id="simulator" class="intro-row">
+        <div>
+          <h1 class="intro-title">실시간 경로 이탈 감지 및 복귀 안내 시뮬레이터</h1>
+          <p class="intro-desc">
+            계획된 이동 경로(<code>planned_route</code>)와 현재 위치(<code>current_location</code>)를
+            비교하여 이탈 여부를 즉시 판별하고 올바른 경로로 복귀를 안내합니다.
+          </p>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;">
+          <div class="meta-strip tabular-nums" id="header-meta"></div>
+          <button type="button" id="btn-download-html" class="btn btn-outline btn-sm">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+              <polyline points="7 10 12 15 17 10"></polyline>
+              <line x1="12" x2="12" y1="15" y2="3"></line>
+            </svg>
+            <span id="download-html-label">index.html 다운로드</span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Two-Zone Sandbox Layout -->
+      <div class="workspace-grid">
+        <!-- Left Stage -->
+        <div class="stage-col">
+          <section class="panel" aria-label="경로 추적 시각화 캔버스">
+            <div id="status-banner" class="status-banner is-off" role="status" aria-live="polite">
+              <div class="status-left">
+                <span id="banner-icon" aria-hidden="true"></span>
+                <div>
+                  <p class="status-msg" id="banner-message"></p>
+                  <p class="status-meta tabular-nums" id="banner-meta"></p>
+                </div>
+              </div>
+              <div class="status-hint tabular-nums" id="banner-hint"></div>
+            </div>
+
+            <div class="canvas-wrap">
+              <svg id="route-svg" viewBox="0 0 820 400" role="img" aria-label="경로 시각화 지도"></svg>
+              <div class="legend-strip">
+                <div class="legend-items">
+                  <span class="legend-item">
+                    <span class="dot-blue" aria-hidden="true"></span>
+                    현재 위치 (정상)
+                  </span>
+                  <span class="legend-item">
+                    <span class="dot-green" aria-hidden="true"></span>
+                    통과 · 도착 지점
+                  </span>
+                  <span class="legend-item">
+                    <span class="tri-red" aria-hidden="true"></span>
+                    경로 외 이탈 지점
+                  </span>
+                </div>
+                <span class="mono tabular-nums" id="route-length-label">target_route[4]</span>
+              </div>
+            </div>
+
+            <div class="stage-controls">
+              <div class="control-group">
+                <button type="button" id="btn-prev" class="btn btn-outline btn-sm">이전 지점</button>
+                <button type="button" id="btn-next" class="btn btn-outline btn-sm">다음 지점</button>
+                <button type="button" id="btn-deviate" class="btn btn-danger-soft btn-sm">
+                  이탈 테스트 (잘못된 길)
+                </button>
+                <button type="button" id="btn-reset" class="btn btn-soft btn-sm">출발지 복귀</button>
+              </div>
+              <div class="slider-group">
+                <label for="interval-slider">
+                  점검 주기 (time.sleep):
+                  <strong id="interval-value" class="mono tabular-nums" style="color: #0f172a">1.0초</strong>
+                </label>
+                <input id="interval-slider" type="range" min="0.5" max="3.0" step="0.5" value="1.0">
+              </div>
+            </div>
+          </section>
+
+          <!-- Log Table -->
+          <section id="check-logs" class="panel" aria-label="경로 점검 실행 기록">
+            <div class="panel-header">
+              <div>
+                <h2 class="panel-title">경로 점검 실행 기록</h2>
+                <p class="panel-subtitle tabular-nums" id="log-summary"></p>
+              </div>
+              <div class="control-group">
+                <div class="segmented-sm" role="tablist" aria-label="기록 필터">
+                  <button type="button" class="tab-btn is-active" data-log-filter="all">전체</button>
+                  <button type="button" class="tab-btn" data-log-filter="on_route">정상 이동</button>
+                  <button type="button" class="tab-btn" data-log-filter="off_route">경로 이탈</button>
+                </div>
+                <button type="button" id="btn-export-csv" class="btn btn-outline btn-sm">CSV 저장</button>
+                <button type="button" id="btn-clear-logs" class="btn btn-soft btn-sm">기록 비우기</button>
+              </div>
+            </div>
+            <div id="log-table-container"></div>
+          </section>
+        </div>
+
+        <!-- Right Control & Logic Deck -->
+        <aside class="deck-col">
+          <section class="panel panel-pad" aria-label="현재 위치 테스트 및 판정 제어" style="display:flex;flex-direction:column;gap:16px;">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+              <h2 class="panel-title">현재 위치 판정 테스트</h2>
+              <button type="button" id="btn-sound-toggle" class="btn btn-soft btn-sm" aria-pressed="true">알림음 켜짐</button>
+            </div>
+
+            <div id="verdict-box" class="verdict-box is-off">
+              <div class="verdict-head">
+                <span id="verdict-icon" aria-hidden="true"></span>
+                <span id="verdict-title"></span>
+              </div>
+              <p class="verdict-text" id="verdict-message"></p>
+              <div id="verdict-action-wrap" style="margin-top:10px;"></div>
+            </div>
+
+            <form id="custom-location-form">
+              <label for="custom-location-input" class="field-label">
+                현재 위치 직접 입력 (user_current_location)
+              </label>
+              <div class="input-row">
+                <input id="custom-location-input" type="text" class="text-input mono" placeholder="예: B지점 또는 잘못된_골목">
+                <button type="submit" class="btn btn-dark btn-sm">확인</button>
+              </div>
+            </form>
+
+            <div style="border-top:1px solid #f1f5f9;padding-top:12px;">
+              <div class="field-label">빠른 위치 선택</div>
+              <div id="quick-buttons" class="quick-grid"></div>
+            </div>
+
+            <label class="checkbox-row">
+              <input type="checkbox" id="chk-random-deviation" checked="">
+              <span>자동 주행 중 임의 경로 이탈 및 자동 복귀 포함</span>
+            </label>
+          </section>
+
+          <div id="deck-panel" style="display:flex;flex-direction:column;gap:12px;">
+            <div class="segmented" role="tablist" aria-label="설정 및 코드 보기 전환">
+              <button type="button" class="tab-btn is-active" id="tab-editor" data-deck-tab="editor">
+                경로 및 지점 편집
+              </button>
+              <button type="button" class="tab-btn" id="tab-python" data-deck-tab="python">
+                실시간 파이썬 코드
+              </button>
+            </div>
+
+            <!-- Route Editor Panel -->
+            <section id="panel-editor" class="panel">
+              <div class="panel-pad">
+                <h2 class="panel-title">시나리오 프리셋</h2>
+                <p class="panel-subtitle">예시 경로를 선택하거나 아래에서 경유지를 직접 편집하세요.</p>
+                <div id="preset-grid" class="preset-grid"></div>
+              </div>
+
+              <div class="panel-pad section-divider">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                  <h3 class="panel-title">계획된 경로 (planned_route)</h3>
+                  <span class="panel-subtitle tabular-nums" id="wp-count-label"></span>
+                </div>
+                <ul id="waypoint-list" class="waypoint-list"></ul>
+                <form id="add-waypoint-form" class="input-row" style="margin-top:12px;">
+                  <input id="new-waypoint-input" type="text" class="text-input" placeholder="새 경유지 이름 (예: D지점)" aria-label="새 경유지 이름">
+                  <button type="submit" class="btn btn-dark btn-sm">경유지 추가</button>
+                </form>
+              </div>
+
+              <div class="panel-pad section-divider">
+                <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                  <h3 class="panel-title">이탈 테스트 지점 (경로 외)</h3>
+                  <span class="panel-subtitle tabular-nums" id="off-count-label"></span>
+                </div>
+                <div id="off-chip-list" class="off-chip-list"></div>
+                <form id="add-off-form" class="input-row" style="margin-top:12px;">
+                  <input id="new-off-input" type="text" class="text-input" placeholder="이탈 지점 추가 (예: 샛길)" aria-label="이탈 지점 이름">
+                  <button type="submit" class="btn btn-outline btn-sm">이탈 지점 추가</button>
+                </form>
+              </div>
+            </section>
+
+            <!-- Python Preview Panel -->
+            <section id="panel-python" class="panel hidden" aria-label="동기화된 파이썬 로직">
+              <div class="panel-header">
+                <div>
+                  <h2 class="panel-title">실시간 파이썬 로직 (check_route)</h2>
+                  <p class="panel-subtitle">현재 경로와 위치가 반영되며 실행 분기가 강조됩니다.</p>
+                </div>
+                <button type="button" id="btn-copy-code" class="btn btn-outline btn-sm">코드 복사</button>
+              </div>
+              <div id="python-code-body" class="code-body"></div>
+              <div class="stdout-bar">
+                <span class="stdout-label">출력 결과:</span>
+                <span id="python-stdout" class="stdout-err"></span>
+              </div>
+            </section>
+          </div>
+        </aside>
+      </div>
+    </main>
+
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <span>경로 이탈 감지기 · check_route 인터랙티브 시뮬레이션</span>
+        <span>계획 경로 대조 기반 이탈 감지 및 복귀 안내</span>
+      </div>
+    </footer>
+
+    <script>
+      (function () {
+        'use strict';
+
+        var SVG_NS = 'http://www.w3.org/2000/svg';
+        var SVG_WIDTH = 820;
+        var SVG_HEIGHT = 400;
+
+        var ROUTE_PRESETS = [
+          {
+            id: 'default-example',
+            name: '기본 예시 경로',
+            plannedRoute: ['A지점', 'B지점', 'C지점', '목적지'],
+            offRouteLocations: ['잘못된_골목', '공사_우회로', '막다른_골목'],
+            initialLocation: '잘못된_골목',
+          },
+          {
+            id: 'seoul-commute',
+            name: '도심 출근 경로',
+            plannedRoute: ['광화문역', '종로3가', '을지로3가', '신사역', '강남역'],
+            offRouteLocations: ['청계천_이면도로', '남산_우회도로', '서초_골목길'],
+            initialLocation: '광화문역',
+          },
+          {
+            id: 'mountain-trail',
+            name: '북한산 등산 코스',
+            plannedRoute: ['탐방지원센터', '구기계곡', '대남문', '문수봉', '백운대_정상'],
+            offRouteLocations: ['비법정_탐방로', '급경사_계곡길', '폐쇄_능선'],
+            initialLocation: '탐방지원센터',
+          },
+          {
+            id: 'delivery-loop',
+            name: '물류 배송 순회',
+            plannedRoute: ['물류센터', '성수_허브', '잠실_거점', '송파_터미널'],
+            offRouteLocations: ['미등록_적재장', '진입금지_구역'],
+            initialLocation: '물류센터',
+          },
+        ];
+
+        var state = {
+          activePresetId: ROUTE_PRESETS[0].id,
+          plannedRoute: ROUTE_PRESETS[0].plannedRoute.slice(),
+          offRouteLocations: ROUTE_PRESETS[0].offRouteLocations.slice(),
+          currentLocation: ROUTE_PRESETS[0].initialLocation,
+          lastValidIndex: 0,
+          intervalSeconds: 1.0,
+          isAutoRunning: false,
+          simulateRandomDeviation: true,
+          soundEnabled: true,
+          activeDeckTab: 'editor',
+          logFilter: 'all',
+          logs: [],
+          autoTimerId: null,
+        };
+
+        var audioCtx = null;
+
+        function playTone(kind) {
+          if (!state.soundEnabled) return;
+          try {
+            var Ctx = window.AudioContext || window.webkitAudioContext;
+            if (!Ctx) return;
+            if (!audioCtx) audioCtx = new Ctx();
+            if (audioCtx.state === 'suspended') audioCtx.resume();
+            var now = audioCtx.currentTime;
+
+            if (kind === 'off_route') {
+              [0, 0.16].forEach(function (offset, idx) {
+                var osc = audioCtx.createOscillator();
+                var gain = audioCtx.createGain();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(idx === 0 ? 520 : 390, now + offset);
+                gain.gain.setValueAtTime(0.001, now + offset);
+                gain.gain.exponentialRampToValueAtTime(0.08, now + offset + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.13);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now + offset);
+                osc.stop(now + offset + 0.14);
+              });
+            } else if (kind === 'arrived') {
+              [523.25, 659.25, 783.99].forEach(function (freq, idx) {
+                var offset = idx * 0.1;
+                var osc = audioCtx.createOscillator();
+                var gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(freq, now + offset);
+                gain.gain.setValueAtTime(0.001, now + offset);
+                gain.gain.exponentialRampToValueAtTime(0.07, now + offset + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.2);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now + offset);
+                osc.stop(now + offset + 0.22);
+              });
+            } else {
+              var osc = audioCtx.createOscillator();
+              var gain = audioCtx.createGain();
+              osc.type = 'sine';
+              osc.frequency.setValueAtTime(587.33, now);
+              gain.gain.setValueAtTime(0.001, now);
+              gain.gain.exponentialRampToValueAtTime(0.045, now + 0.015);
+              gain.gain.exponentialRampToValueAtTime(0.001, now + 0.11);
+              osc.connect(gain);
+              gain.connect(audioCtx.destination);
+              osc.start(now);
+              osc.stop(now + 0.12);
+            }
+          } catch (e) {
+            // Audio blocked or unsupported
+          }
+        }
+
+        function formatNowTime() {
+          var d = new Date();
+          var hh = String(d.getHours()).padStart(2, '0');
+          var mm = String(d.getMinutes()).padStart(2, '0');
+          var ss = String(d.getSeconds()).padStart(2, '0');
+          return hh + ':' + mm + ':' + ss;
+        }
+
+        function evaluateRoute(location, route, lastValidIdx) {
+          var trimmed = String(location || '').trim();
+          var matchedIndex = route.indexOf(trimmed);
+          var isOnRoute = trimmed.length > 0 && matchedIndex !== -1;
+
+          if (!isOnRoute) {
+            var safeIdx = lastValidIdx >= 0 && lastValidIdx < route.length ? lastValidIdx : 0;
+            return {
+              status: 'off_route',
+              isOnRoute: false,
+              message: '알림: 경로를 이탈했습니다! 올바른 길로 돌아가세요.',
+              matchedIndex: -1,
+              recommendedReturnWaypoint: route[safeIdx] || '출발지',
+            };
+          }
+
+          var isArrived = route.length > 0 && matchedIndex === route.length - 1;
+          return {
+            status: isArrived ? 'arrived' : 'on_route',
+            isOnRoute: true,
+            message: isArrived
+              ? '목적지에 도착했습니다! 계획된 경로를 완료했습니다.'
+              : '정상적으로 경로를 이동 중입니다.',
+            matchedIndex: matchedIndex,
+            recommendedReturnWaypoint: route[matchedIndex],
+          };
+        }
+
+        function createIconSvg(type, size, color) {
+          var s = size || 16;
+          var svg = document.createElementNS(SVG_NS, 'svg');
+          svg.setAttribute('width', String(s));
+          svg.setAttribute('height', String(s));
+          svg.setAttribute('viewBox', '0 0 24 24');
+          svg.setAttribute('fill', 'none');
+          svg.setAttribute('stroke', color || 'currentColor');
+          svg.setAttribute('stroke-width', '2');
+          svg.setAttribute('stroke-linecap', 'round');
+          svg.setAttribute('stroke-linejoin', 'round');
+
+          if (type === 'alert') {
+            svg.innerHTML =
+              '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/>';
+          } else if (type === 'check') {
+            svg.innerHTML =
+              '<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>';
+          } else if (type === 'flag') {
+            svg.innerHTML =
+              '<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/>';
+          } else if (type === 'play') {
+            svg.innerHTML = '<polygon points="6 3 20 12 6 21 6 3"/>';
+          } else if (type === 'pause') {
+            svg.innerHTML =
+              '<rect x="14" y="4" width="4" height="16" rx="1"/><rect x="6" y="4" width="4" height="16" rx="1"/>';
+          } else if (type === 'up') {
+            svg.innerHTML = '<path d="m18 15-6-6-6 6"/>';
+          } else if (type === 'down') {
+            svg.innerHTML = '<path d="m6 9 6 6 6-6"/>';
+          } else if (type === 'trash') {
+            svg.innerHTML =
+              '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>';
+          }
+          return svg;
+        }
+
+        function appendLogEntry(loc, evalRes) {
+          state.logs.unshift({
+            id: Date.now() + '-' + Math.random().toString(36).slice(2, 6),
+            timestamp: formatNowTime(),
+            currentLocation: loc,
+            plannedRouteSnapshot: state.plannedRoute.slice(),
+            isOnRoute: evalRes.isOnRoute,
+            status: evalRes.status,
+            message: evalRes.message,
+          });
+          if (state.logs.length > 100) {
+            state.logs.length = 100;
+          }
+        }
+
+        function moveToLocation(nextLoc, shouldPlayTone) {
+          var trimmed = String(nextLoc || '').trim();
+          if (!trimmed) return;
+          var idx = state.plannedRoute.indexOf(trimmed);
+          if (idx !== -1) {
+            state.lastValidIndex = idx;
+          }
+          state.currentLocation = trimmed;
+          document.getElementById('custom-location-input').value = trimmed;
+          var evalRes = evaluateRoute(trimmed, state.plannedRoute, state.lastValidIndex);
+          appendLogEntry(trimmed, evalRes);
+          if (shouldPlayTone) {
+            playTone(evalRes.status);
+          }
+          renderAll();
+        }
+
+        function stopAutoRun() {
+          if (state.autoTimerId !== null) {
+            window.clearInterval(state.autoTimerId);
+            state.autoTimerId = null;
+          }
+          state.isAutoRunning = false;
+        }
+
+        function autoTick() {
+          if (state.plannedRoute.length === 0) {
+            stopAutoRun();
+            renderAll();
+            return;
+          }
+
+          var evalRes = evaluateRoute(
+            state.currentLocation,
+            state.plannedRoute,
+            state.lastValidIndex
+          );
+
+          if (!evalRes.isOnRoute) {
+            var recovery = state.plannedRoute[state.lastValidIndex] || state.plannedRoute[0];
+            moveToLocation(recovery, true);
+            return;
+          }
+
+          if (evalRes.matchedIndex >= state.plannedRoute.length - 1) {
+            stopAutoRun();
+            renderAll();
+            return;
+          }
+
+          if (
+            state.simulateRandomDeviation &&
+            state.offRouteLocations.length > 0 &&
+            evalRes.matchedIndex > 0 &&
+            Math.random() < 0.28
+          ) {
+            var randomOff =
+              state.offRouteLocations[
+                Math.floor(Math.random() * state.offRouteLocations.length)
+              ];
+            moveToLocation(randomOff, true);
+            return;
+          }
+
+          var nextIdx = Math.min(state.plannedRoute.length - 1, evalRes.matchedIndex + 1);
+          moveToLocation(state.plannedRoute[nextIdx], true);
+        }
+
+        function startAutoRun() {
+          stopAutoRun();
+          var evalRes = evaluateRoute(
+            state.currentLocation,
+            state.plannedRoute,
+            state.lastValidIndex
+          );
+          if (evalRes.status === 'arrived' && state.plannedRoute.length > 0) {
+            state.lastValidIndex = 0;
+            moveToLocation(state.plannedRoute[0], true);
+          }
+          state.isAutoRunning = true;
+          state.autoTimerId = window.setInterval(autoTick, state.intervalSeconds * 1000);
+          renderAll();
+        }
+
+        function svgEl(tag, attrs) {
+          var el = document.createElementNS(SVG_NS, tag);
+          if (attrs) {
+            Object.keys(attrs).forEach(function (k) {
+              el.setAttribute(k, String(attrs[k]));
+            });
+          }
+          return el;
+        }
+
+        function renderCanvas(evalRes) {
+          var svg = document.getElementById('route-svg');
+          svg.innerHTML = '';
+
+          // Defs: Grid + Arrow Marker
+          var defs = svgEl('defs');
+          var pattern = svgEl('pattern', {
+            id: 'route-grid',
+            width: 32,
+            height: 32,
+            patternUnits: 'userSpaceOnUse',
+          });
+          pattern.appendChild(
+            svgEl('path', {
+              d: 'M 32 0 L 0 0 0 32',
+              fill: 'none',
+              stroke: '#e2e8f0',
+              'stroke-width': 0.75,
+            })
+          );
+          defs.appendChild(pattern);
+
+          var marker = svgEl('marker', {
+            id: 'arrow-return',
+            viewBox: '0 0 10 10',
+            refX: 6,
+            refY: 5,
+            markerWidth: 6,
+            markerHeight: 6,
+            orient: 'auto-start-reverse',
+          });
+          marker.appendChild(svgEl('path', { d: 'M 0 1.5 L 8 5 L 0 8.5 z', fill: '#dc2626' }));
+          defs.appendChild(marker);
+          svg.appendChild(defs);
+
+          svg.appendChild(
+            svgEl('rect', { width: SVG_WIDTH, height: SVG_HEIGHT, fill: 'url(#route-grid)' })
+          );
+
+          // Planned node coordinates
+          var count = state.plannedRoute.length;
+          var plannedNodes = [];
+          var marginX = 88;
+          var usableW = SVG_WIDTH - marginX * 2;
+          var baseY = 186;
+
+          for (var i = 0; i < count; i++) {
+            var ratio = count === 1 ? 0.5 : i / (count - 1);
+            var x = marginX + ratio * usableW;
+            var yOffset = count <= 2 ? 0 : Math.sin(ratio * Math.PI * 1.45 - 0.35) * 44;
+            plannedNodes.push({
+              label: state.plannedRoute[i],
+              x: x,
+              y: baseY - yOffset,
+              index: i,
+            });
+          }
+
+          // Off-route node coordinates
+          var allOff = state.offRouteLocations.slice();
+          var trimmedCur = state.currentLocation.trim();
+          if (
+            trimmedCur &&
+            state.plannedRoute.indexOf(trimmedCur) === -1 &&
+            allOff.indexOf(trimmedCur) === -1
+          ) {
+            allOff.push(trimmedCur);
+          }
+
+          var offNodes = allOff.map(function (label, idx) {
+            var anchorIdx =
+              plannedNodes.length > 0
+                ? Math.min(plannedNodes.length - 1, Math.max(0, (idx + 1) % plannedNodes.length))
+                : 0;
+            var anchor = plannedNodes[anchorIdx] || { x: SVG_WIDTH / 2, y: 186 };
+            var placeBelow = idx % 2 === 0;
+            var spreadX = (idx - (allOff.length - 1) / 2) * 32;
+            var nx = Math.max(84, Math.min(SVG_WIDTH - 84, anchor.x + spreadX));
+            var ny = placeBelow ? 332 : 66;
+            return { label: label, x: nx, y: ny, anchor: anchor };
+          });
+
+          // Smooth path string
+          var pathD = '';
+          if (plannedNodes.length === 1) {
+            pathD = 'M ' + plannedNodes[0].x + ' ' + plannedNodes[0].y;
+          } else if (plannedNodes.length > 1) {
+            pathD = 'M ' + plannedNodes[0].x + ' ' + plannedNodes[0].y;
+            for (var j = 1; j < plannedNodes.length; j++) {
+              var prev = plannedNodes[j - 1];
+              var curr = plannedNodes[j];
+              var midX = (prev.x + curr.x) / 2;
+              pathD += ' C ' + midX + ' ' + prev.y + ', ' + midX + ' ' + curr.y + ', ' + curr.x + ' ' + curr.y;
+            }
+          }
+
+          var isOffRoute = evalRes.status === 'off_route';
+
+          if (pathD) {
+            svg.appendChild(
+              svgEl('path', {
+                d: pathD,
+                fill: 'none',
+                stroke: '#dbeafe',
+                'stroke-width': 22,
+                'stroke-linecap': 'round',
+                'stroke-linejoin': 'round',
+              })
+            );
+          }
+
+          // Detour lines
+          offNodes.forEach(function (off) {
+            var isCurOff = off.label === trimmedCur;
+            svg.appendChild(
+              svgEl('line', {
+                x1: off.anchor.x,
+                y1: off.anchor.y,
+                x2: off.x,
+                y2: off.y,
+                stroke: isCurOff ? '#f87171' : '#cbd5e1',
+                'stroke-width': isCurOff ? 2 : 1.5,
+                'stroke-dasharray': '5 5',
+              })
+            );
+          });
+
+          if (pathD) {
+            svg.appendChild(
+              svgEl('path', {
+                d: pathD,
+                fill: 'none',
+                stroke: isOffRoute ? '#94a3b8' : '#2563eb',
+                'stroke-width': 4,
+                'stroke-linecap': 'round',
+                'stroke-linejoin': 'round',
+              })
+            );
+          }
+
+          // Active coord & Return anchor
+          var activeCoord = { x: SVG_WIDTH / 2, y: 332 };
+          if (evalRes.isOnRoute && evalRes.matchedIndex >= 0 && plannedNodes[evalRes.matchedIndex]) {
+            activeCoord = {
+              x: plannedNodes[evalRes.matchedIndex].x,
+              y: plannedNodes[evalRes.matchedIndex].y,
+            };
+          } else {
+            for (var k = 0; k < offNodes.length; k++) {
+              if (offNodes[k].label === trimmedCur) {
+                activeCoord = { x: offNodes[k].x, y: offNodes[k].y };
+                break;
+              }
+            }
+          }
+
+          var returnAnchor =
+            plannedNodes.length > 0
+              ? plannedNodes[Math.min(plannedNodes.length - 1, Math.max(0, state.lastValidIndex))]
+              : null;
+
+          if (isOffRoute && returnAnchor) {
+            svg.appendChild(
+              svgEl('line', {
+                x1: activeCoord.x,
+                y1: activeCoord.y,
+                x2: returnAnchor.x,
+                y2: returnAnchor.y,
+                stroke: '#dc2626',
+                'stroke-width': 2.5,
+                'stroke-dasharray': '6 4',
+                'marker-end': 'url(#arrow-return)',
+              })
+            );
+
+            var labelG = svgEl('g', {
+              transform:
+                'translate(' +
+                (activeCoord.x + returnAnchor.x) / 2 +
+                ',' +
+                (activeCoord.y + returnAnchor.y) / 2 +
+                ')',
+            });
+            labelG.appendChild(
+              svgEl('rect', {
+                x: -54,
+                y: -12,
+                width: 108,
+                height: 22,
+                rx: 4,
+                fill: '#ffffff',
+                stroke: '#fecaca',
+                'stroke-width': 1,
+              })
+            );
+            var labelText = svgEl('text', {
+              'text-anchor': 'middle',
+              y: 3,
+              fill: '#b91c1c',
+              'font-size': 11,
+              'font-weight': 600,
+            });
+            labelText.textContent = '올바른 길로 복귀';
+            labelG.appendChild(labelText);
+            svg.appendChild(labelG);
+          }
+
+          // Off-route nodes
+          offNodes.forEach(function (off) {
+            var isSelected = off.label === trimmedCur;
+            var g = svgEl('g', {
+              transform: 'translate(' + off.x + ',' + off.y + ')',
+              class: 'svg-node',
+              role: 'button',
+              tabindex: 0,
+              'aria-label': '경로 외 지점 ' + off.label + ' 선택',
+            });
+
+            if (isSelected) {
+              g.appendChild(
+                svgEl('circle', {
+                  r: 24,
+                  fill: 'none',
+                  stroke: '#dc2626',
+                  'stroke-width': 2,
+                  'stroke-opacity': 0.45,
+                })
+              );
+            }
+
+            g.appendChild(
+              svgEl('polygon', {
+                points: '0,-13 13,9 -13,9',
+                fill: isSelected ? '#dc2626' : '#fff1f2',
+                stroke: isSelected ? '#991b1b' : '#fda4af',
+                'stroke-width': 2,
+                'stroke-linejoin': 'round',
+              })
+            );
+
+            var bang = svgEl('text', {
+              y: 3,
+              'text-anchor': 'middle',
+              fill: isSelected ? '#ffffff' : '#dc2626',
+              'font-size': 10,
+              'font-weight': 700,
+            });
+            bang.textContent = '!';
+            g.appendChild(bang);
+
+            var tagG = svgEl('g', { transform: 'translate(0, 25)' });
+            tagG.appendChild(
+              svgEl('rect', {
+                x: -54,
+                y: -11,
+                width: 108,
+                height: 22,
+                rx: 4,
+                fill: isSelected ? '#dc2626' : '#ffffff',
+                stroke: isSelected ? '#dc2626' : '#e2e8f0',
+                'stroke-width': 1,
+              })
+            );
+            var tagText = svgEl('text', {
+              y: 4,
+              'text-anchor': 'middle',
+              fill: isSelected ? '#ffffff' : '#334155',
+              'font-size': 11,
+              'font-weight': isSelected ? 600 : 500,
+              'font-family': 'var(--font-mono)',
+            });
+            tagText.textContent =
+              off.label.length > 10 ? off.label.slice(0, 9) + '…' : off.label;
+            tagG.appendChild(tagText);
+            g.appendChild(tagG);
+
+            g.addEventListener('click', function () {
+              stopAutoRun();
+              moveToLocation(off.label, true);
+            });
+            g.addEventListener('keydown', function (e) {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                stopAutoRun();
+                moveToLocation(off.label, true);
+              }
+            });
+
+            svg.appendChild(g);
+          });
+
+          // Planned waypoint nodes
+          plannedNodes.forEach(function (node) {
+            var isCurrent = evalRes.isOnRoute && evalRes.matchedIndex === node.index;
+            var isPassed = evalRes.isOnRoute && node.index < evalRes.matchedIndex;
+            var isDest = node.index === plannedNodes.length - 1;
+            var isReturnTarget =
+              isOffRoute && node.label === evalRes.recommendedReturnWaypoint;
+
+            var g = svgEl('g', {
+              transform: 'translate(' + node.x + ',' + node.y + ')',
+              class: 'svg-node',
+              role: 'button',
+              tabindex: 0,
+              'aria-label': '계획 경로 ' + (node.index + 1) + '번 지점 ' + node.label + ' 선택',
+            });
+
+            if (isCurrent || isReturnTarget) {
+              g.appendChild(
+                svgEl('circle', {
+                  r: 23,
+                  fill: 'none',
+                  stroke: isReturnTarget ? '#dc2626' : isDest ? '#059669' : '#2563eb',
+                  'stroke-width': 2,
+                  'stroke-dasharray': isReturnTarget ? '4 3' : '',
+                  'stroke-opacity': 0.6,
+                })
+              );
+            }
+
+            g.appendChild(
+              svgEl('circle', {
+                r: 15,
+                fill: isCurrent
+                  ? isDest
+                    ? '#059669'
+                    : '#2563eb'
+                  : isPassed
+                    ? '#059669'
+                    : '#ffffff',
+                stroke: isCurrent
+                  ? isDest
+                    ? '#047857'
+                    : '#1d4ed8'
+                  : isPassed
+                    ? '#059669'
+                    : isReturnTarget
+                      ? '#dc2626'
+                      : '#475569',
+                'stroke-width': 2.5,
+              })
+            );
+
+            var numTxt = svgEl('text', {
+              y: 4,
+              'text-anchor': 'middle',
+              fill: isCurrent || isPassed ? '#ffffff' : '#1e293b',
+              'font-size': 11,
+              'font-weight': 700,
+              'font-family': 'var(--font-mono)',
+            });
+            numTxt.textContent = String(node.index + 1);
+            g.appendChild(numTxt);
+
+            var nameG = svgEl('g', { transform: 'translate(0, -28)' });
+            nameG.appendChild(
+              svgEl('rect', {
+                x: -48,
+                y: -12,
+                width: 96,
+                height: 22,
+                rx: 4,
+                fill: isCurrent ? '#0f172a' : '#ffffff',
+                stroke: isCurrent ? '#0f172a' : '#cbd5e1',
+                'stroke-width': 1,
+              })
+            );
+            var nameTxt = svgEl('text', {
+              y: 3,
+              'text-anchor': 'middle',
+              fill: isCurrent ? '#ffffff' : '#1e293b',
+              'font-size': 11.5,
+              'font-weight': isCurrent ? 600 : 500,
+            });
+            nameTxt.textContent =
+              node.label.length > 10 ? node.label.slice(0, 9) + '…' : node.label;
+            nameG.appendChild(nameTxt);
+            g.appendChild(nameG);
+
+            g.addEventListener('click', function () {
+              stopAutoRun();
+              moveToLocation(node.label, true);
+            });
+            g.addEventListener('keydown', function (e) {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                stopAutoRun();
+                moveToLocation(node.label, true);
+              }
+            });
+
+            svg.appendChild(g);
+          });
+
+          // Traveler Marker
+          if (plannedNodes.length > 0) {
+            var markerG = svgEl('g', {
+              class: 'traveler-marker',
+              style: 'transform: translate(' + activeCoord.x + 'px, ' + activeCoord.y + 'px);',
+            });
+            markerG.appendChild(
+              svgEl('circle', {
+                r: 6,
+                cy: -22,
+                fill: isOffRoute ? '#dc2626' : '#059669',
+                stroke: '#ffffff',
+                'stroke-width': 2,
+              })
+            );
+            svg.appendChild(markerG);
+          }
+
+          document.getElementById('route-length-label').textContent =
+            'target_route[' + state.plannedRoute.length + ']';
+        }
+
+        function renderPython(evalRes) {
+          var formattedRoute = JSON.stringify(state.plannedRoute).replace(/,/g, ', ');
+          var safeLoc = JSON.stringify(state.currentLocation);
+          var lines = [
+            { text: 'import time', cls: '' },
+            { text: '', cls: '' },
+            { text: 'def check_route(current_location, target_route):', cls: '' },
+            { text: '    # 경로 이탈 감지 로직', cls: 'is-comment' },
+            {
+              text: '    if current_location not in target_route:',
+              cls: !evalRes.isOnRoute ? 'is-off' : '',
+            },
+            {
+              text: '        print("알림: 경로를 이탈했습니다! 올바른 길로 돌아가세요.")',
+              cls: !evalRes.isOnRoute ? 'is-off' : '',
+            },
+            {
+              text: '    else:',
+              cls: evalRes.isOnRoute ? 'is-on' : '',
+            },
+            {
+              text: '        print("정상적으로 경로를 이동 중입니다.")',
+              cls: evalRes.isOnRoute ? 'is-on' : '',
+            },
+            { text: '', cls: '' },
+            { text: 'planned_route = ' + formattedRoute, cls: '' },
+            { text: 'user_current_location = ' + safeLoc, cls: '' },
+            { text: 'time.sleep(' + state.intervalSeconds.toFixed(1) + ')', cls: '' },
+            { text: 'check_route(user_current_location, planned_route)', cls: '' },
+          ];
+
+          var container = document.getElementById('python-code-body');
+          container.innerHTML = '';
+
+          lines.forEach(function (line, idx) {
+            var row = document.createElement('div');
+            row.className = 'code-line' + (line.cls ? ' ' + line.cls : '');
+
+            var num = document.createElement('span');
+            num.className = 'line-num tabular-nums';
+            num.textContent = String(idx + 1);
+
+            var code = document.createElement('span');
+            code.textContent = line.text || ' ';
+
+            row.appendChild(num);
+            row.appendChild(code);
+            container.appendChild(row);
+          });
+
+          var stdout = document.getElementById('python-stdout');
+          stdout.className = evalRes.isOnRoute ? 'stdout-ok' : 'stdout-err';
+          stdout.textContent = evalRes.isOnRoute
+            ? '정상적으로 경로를 이동 중입니다.'
+            : '알림: 경로를 이탈했습니다! 올바른 길로 돌아가세요.';
+        }
+
+        function renderEditor() {
+          // Presets
+          var presetGrid = document.getElementById('preset-grid');
+          presetGrid.innerHTML = '';
+          ROUTE_PRESETS.forEach(function (preset) {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className =
+              'preset-card' + (state.activePresetId === preset.id ? ' is-active' : '');
+
+            var name = document.createElement('div');
+            name.className = 'preset-name';
+            name.textContent = preset.name;
+
+            var path = document.createElement('div');
+            path.className = 'preset-path';
+            path.textContent = preset.plannedRoute.join(' → ');
+
+            btn.appendChild(name);
+            btn.appendChild(path);
+            btn.addEventListener('click', function () {
+              stopAutoRun();
+              state.activePresetId = preset.id;
+              state.plannedRoute = preset.plannedRoute.slice();
+              state.offRouteLocations = preset.offRouteLocations.slice();
+              var startIdx = Math.max(0, state.plannedRoute.indexOf(preset.initialLocation));
+              state.lastValidIndex = startIdx;
+              moveToLocation(preset.initialLocation, true);
+            });
+            presetGrid.appendChild(btn);
+          });
+
+          // Waypoints
+          document.getElementById('wp-count-label').textContent =
+            '총 ' + state.plannedRoute.length + '개 지점 (최소 2개)';
+          var wpList = document.getElementById('waypoint-list');
+          wpList.innerHTML = '';
+
+          state.plannedRoute.forEach(function (wp, idx) {
+            var li = document.createElement('li');
+            li.className = 'waypoint-item';
+
+            var left = document.createElement('div');
+            left.className = 'wp-left';
+
+            var badge = document.createElement('span');
+            badge.className = 'wp-index tabular-nums';
+            badge.textContent = String(idx + 1);
+
+            var label = document.createElement('span');
+            label.className = 'wp-label';
+            label.textContent = wp;
+
+            left.appendChild(badge);
+            left.appendChild(label);
+
+            if (idx === 0) {
+              var startRole = document.createElement('span');
+              startRole.className = 'wp-role';
+              startRole.textContent = '출발';
+              left.appendChild(startRole);
+            } else if (idx === state.plannedRoute.length - 1) {
+              var endRole = document.createElement('span');
+              endRole.className = 'wp-role is-end';
+              endRole.textContent = '도착';
+              left.appendChild(endRole);
+            }
+
+            var actions = document.createElement('div');
+            actions.style.display = 'flex';
+            actions.style.alignItems = 'center';
+            actions.style.gap = '2px';
+
+            var upBtn = document.createElement('button');
+            upBtn.type = 'button';
+            upBtn.className = 'icon-btn';
+            upBtn.disabled = idx === 0;
+            upBtn.setAttribute('aria-label', wp + ' 위로 이동');
+            upBtn.appendChild(createIconSvg('up', 14));
+            upBtn.addEventListener('click', function () {
+              if (idx === 0) return;
+              var copy = state.plannedRoute.slice();
+              var tmp = copy[idx];
+              copy[idx] = copy[idx - 1];
+              copy[idx - 1] = tmp;
+              state.activePresetId = 'custom';
+              state.plannedRoute = copy;
+              renderAll();
+            });
+
+            var downBtn = document.createElement('button');
+            downBtn.type = 'button';
+            downBtn.className = 'icon-btn';
+            downBtn.disabled = idx === state.plannedRoute.length - 1;
+            downBtn.setAttribute('aria-label', wp + ' 아래로 이동');
+            downBtn.appendChild(createIconSvg('down', 14));
+            downBtn.addEventListener('click', function () {
+              if (idx === state.plannedRoute.length - 1) return;
+              var copy = state.plannedRoute.slice();
+              var tmp = copy[idx];
+              copy[idx] = copy[idx + 1];
+              copy[idx + 1] = tmp;
+              state.activePresetId = 'custom';
+              state.plannedRoute = copy;
+              renderAll();
+            });
+
+            var delBtn = document.createElement('button');
+            delBtn.type = 'button';
+            delBtn.className = 'icon-btn is-delete';
+            delBtn.disabled = state.plannedRoute.length <= 2;
+            delBtn.setAttribute('aria-label', wp + ' 삭제');
+            delBtn.appendChild(createIconSvg('trash', 14));
+            delBtn.addEventListener('click', function () {
+              if (state.plannedRoute.length <= 2) return;
+              state.activePresetId = 'custom';
+              state.plannedRoute = state.plannedRoute.filter(function (_, i) {
+                return i !== idx;
+              });
+              state.lastValidIndex = Math.min(
+                state.lastValidIndex,
+                Math.max(0, state.plannedRoute.length - 1)
+              );
+              renderAll();
+            });
+
+            actions.appendChild(upBtn);
+            actions.appendChild(downBtn);
+            actions.appendChild(delBtn);
+
+            li.appendChild(left);
+            li.appendChild(actions);
+            wpList.appendChild(li);
+          });
+
+          // Off-route chips
+          document.getElementById('off-count-label').textContent =
+            state.offRouteLocations.length + '개 등록됨';
+          var chipList = document.getElementById('off-chip-list');
+          chipList.innerHTML = '';
+
+          state.offRouteLocations.forEach(function (loc) {
+            var chip = document.createElement('div');
+            chip.className = 'off-chip';
+
+            var txt = document.createElement('span');
+            txt.textContent = loc;
+
+            var rmBtn = document.createElement('button');
+            rmBtn.type = 'button';
+            rmBtn.className = 'icon-btn is-delete';
+            rmBtn.disabled = state.offRouteLocations.length <= 1;
+            rmBtn.setAttribute('aria-label', loc + ' 삭제');
+            rmBtn.appendChild(createIconSvg('trash', 12));
+            rmBtn.addEventListener('click', function () {
+              if (state.offRouteLocations.length <= 1) return;
+              state.offRouteLocations = state.offRouteLocations.filter(function (item) {
+                return item !== loc;
+              });
+              renderAll();
+            });
+
+            chip.appendChild(txt);
+            chip.appendChild(rmBtn);
+            chipList.appendChild(chip);
+          });
+        }
+
+        function renderLogs() {
+          var offCount = state.logs.filter(function (l) {
+            return !l.isOnRoute;
+          }).length;
+          var onCount = state.logs.length - offCount;
+          document.getElementById('log-summary').textContent =
+            '전체 ' + state.logs.length + '건 · 정상 ' + onCount + '건 · 이탈 ' + offCount + '건';
+
+          var filtered = state.logs.filter(function (l) {
+            if (state.logFilter === 'on_route') return l.isOnRoute;
+            if (state.logFilter === 'off_route') return !l.isOnRoute;
+            return true;
+          });
+
+          document.getElementById('btn-export-csv').disabled = state.logs.length === 0;
+          document.getElementById('btn-clear-logs').disabled = state.logs.length === 0;
+
+          var container = document.getElementById('log-table-container');
+          container.innerHTML = '';
+
+          if (filtered.length === 0) {
+            var empty = document.createElement('div');
+            empty.className = 'empty-state';
+            empty.textContent =
+              '아직 조건에 맞는 점검 기록이 없습니다. 캔버스에서 지점을 선택하거나 자동 주행을 시작해 보세요.';
+            container.appendChild(empty);
+            return;
+          }
+
+          var wrap = document.createElement('div');
+          wrap.className = 'table-scroll';
+
+          var table = document.createElement('table');
+          var thead = document.createElement('thead');
+          var headRow = document.createElement('tr');
+          ['점검 시각', '현재 위치', '판정 결과', '안내 메시지'].forEach(function (col) {
+            var th = document.createElement('th');
+            th.textContent = col;
+            headRow.appendChild(th);
+          });
+          thead.appendChild(headRow);
+          table.appendChild(thead);
+
+          var tbody = document.createElement('tbody');
+          filtered.forEach(function (entry) {
+            var tr = document.createElement('tr');
+
+            var tdTime = document.createElement('td');
+            tdTime.className = 'mono tabular-nums';
+            tdTime.style.color = '#64748b';
+            tdTime.style.whiteSpace = 'nowrap';
+            tdTime.textContent = entry.timestamp;
+
+            var tdLoc = document.createElement('td');
+            tdLoc.className = 'mono';
+            tdLoc.style.fontWeight = '600';
+            tdLoc.style.color = '#0f172a';
+            tdLoc.style.whiteSpace = 'nowrap';
+            tdLoc.textContent = entry.currentLocation;
+
+            var tdStatus = document.createElement('td');
+            var statusSpan = document.createElement('span');
+            statusSpan.className =
+              'log-status ' + (entry.status === 'off_route' ? 'is-off' : 'is-ok');
+            statusSpan.appendChild(
+              createIconSvg(
+                entry.status === 'off_route'
+                  ? 'alert'
+                  : entry.status === 'arrived'
+                    ? 'flag'
+                    : 'check',
+                14
+              )
+            );
+            var statusTxt = document.createElement('span');
+            statusTxt.textContent =
+              entry.status === 'off_route'
+                ? '이탈 감지'
+                : entry.status === 'arrived'
+                  ? '목적지 도착'
+                  : '정상 이동';
+            statusSpan.appendChild(statusTxt);
+            tdStatus.appendChild(statusSpan);
+
+            var tdMsg = document.createElement('td');
+            tdMsg.textContent = entry.message;
+
+            tr.appendChild(tdTime);
+            tr.appendChild(tdLoc);
+            tr.appendChild(tdStatus);
+            tr.appendChild(tdMsg);
+            tbody.appendChild(tr);
+          });
+
+          table.appendChild(tbody);
+          wrap.appendChild(table);
+          container.appendChild(wrap);
+        }
+
+        function renderAll() {
+          var evalRes = evaluateRoute(
+            state.currentLocation,
+            state.plannedRoute,
+            state.lastValidIndex
+          );
+
+          // Top bar auto-run button
+          var autoBtn = document.getElementById('btn-auto-toggle');
+          var autoIcon = document.getElementById('auto-btn-icon');
+          var autoLabel = document.getElementById('auto-btn-label');
+          autoIcon.innerHTML = '';
+          if (state.isAutoRunning) {
+            autoBtn.className = 'btn btn-dark';
+            autoIcon.appendChild(createIconSvg('pause', 14));
+            autoLabel.textContent = '자동 주행 정지';
+          } else {
+            autoBtn.className = 'btn btn-primary';
+            autoIcon.appendChild(createIconSvg('play', 14));
+            autoLabel.textContent = '자동 주행 시작';
+          }
+
+          // Intro meta strip
+          document.getElementById('header-meta').textContent =
+            '경유지 ' +
+            state.plannedRoute.length +
+            '개 · 이탈 테스트 지점 ' +
+            state.offRouteLocations.length +
+            '개 · 점검 기록 ' +
+            state.logs.length +
+            '건';
+
+          // Status banner
+          var banner = document.getElementById('status-banner');
+          banner.className =
+            'status-banner ' +
+            (evalRes.status === 'off_route'
+              ? 'is-off'
+              : evalRes.status === 'arrived'
+                ? 'is-arrived'
+                : 'is-on');
+
+          var bannerIcon = document.getElementById('banner-icon');
+          bannerIcon.innerHTML = '';
+          bannerIcon.appendChild(
+            createIconSvg(
+              evalRes.status === 'off_route'
+                ? 'alert'
+                : evalRes.status === 'arrived'
+                  ? 'flag'
+                  : 'check',
+              20,
+              evalRes.status === 'off_route' ? '#dc2626' : '#059669'
+            )
+          );
+
+          document.getElementById('banner-message').textContent = evalRes.message;
+
+          var bannerMeta = document.getElementById('banner-meta');
+          bannerMeta.innerHTML = '';
+          bannerMeta.appendChild(document.createTextNode('현재 위치: '));
+          var locStrong = document.createElement('strong');
+          locStrong.className = 'mono';
+          locStrong.style.color = '#0f172a';
+          locStrong.textContent = state.currentLocation || '미지정';
+          bannerMeta.appendChild(locStrong);
+          bannerMeta.appendChild(
+            document.createTextNode(' · 계획 지점 ' + state.plannedRoute.length + '개')
+          );
+          if (evalRes.status === 'off_route') {
+            var retSpan = document.createElement('span');
+            retSpan.style.color = '#b91c1c';
+            retSpan.style.fontWeight = '600';
+            retSpan.textContent = ' · 복귀 안내: ' + evalRes.recommendedReturnWaypoint;
+            bannerMeta.appendChild(retSpan);
+          }
+
+          document.getElementById('banner-hint').textContent = state.isAutoRunning
+            ? '자동 주행 중 (' + state.intervalSeconds.toFixed(1) + '초 간격)'
+            : '노드를 클릭해 위치를 즉시 이동하세요';
+
+          // Verdict box
+          var verdictBox = document.getElementById('verdict-box');
+          verdictBox.className = 'verdict-box ' + (evalRes.isOnRoute ? 'is-ok' : 'is-off');
+          var vIcon = document.getElementById('verdict-icon');
+          vIcon.innerHTML = '';
+          vIcon.appendChild(
+            createIconSvg(
+              evalRes.isOnRoute ? 'check' : 'alert',
+              16,
+              evalRes.isOnRoute ? '#059669' : '#dc2626'
+            )
+          );
+          document.getElementById('verdict-title').textContent = evalRes.isOnRoute
+            ? '정상 경로 유지'
+            : '경로 이탈 경보';
+          document.getElementById('verdict-message').textContent = evalRes.message;
+
+          var actionWrap = document.getElementById('verdict-action-wrap');
+          actionWrap.innerHTML = '';
+          if (!evalRes.isOnRoute) {
+            var retBtn = document.createElement('button');
+            retBtn.type = 'button';
+            retBtn.className = 'btn btn-danger btn-sm';
+            retBtn.textContent = evalRes.recommendedReturnWaypoint + '(으)로 즉시 복귀';
+            retBtn.addEventListener('click', function () {
+              stopAutoRun();
+              moveToLocation(evalRes.recommendedReturnWaypoint, true);
+            });
+            actionWrap.appendChild(retBtn);
+          }
+
+          // Quick jump buttons
+          var quickWrap = document.getElementById('quick-buttons');
+          quickWrap.innerHTML = '';
+          state.plannedRoute.forEach(function (wp) {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className =
+              'quick-btn' + (state.currentLocation === wp ? ' is-active-on' : '');
+            btn.textContent = wp;
+            btn.addEventListener('click', function () {
+              stopAutoRun();
+              moveToLocation(wp, true);
+            });
+            quickWrap.appendChild(btn);
+          });
+          state.offRouteLocations.forEach(function (off) {
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className =
+              'quick-btn ' +
+              (state.currentLocation === off ? 'is-active-off' : 'is-off-node');
+            btn.textContent = off;
+            btn.addEventListener('click', function () {
+              stopAutoRun();
+              moveToLocation(off, true);
+            });
+            quickWrap.appendChild(btn);
+          });
+
+          // Sound button
+          var soundBtn = document.getElementById('btn-sound-toggle');
+          soundBtn.setAttribute('aria-pressed', state.soundEnabled ? 'true' : 'false');
+          soundBtn.textContent = state.soundEnabled ? '알림음 켜짐' : '알림음 꺼짐';
+
+          // Deck tabs
+          document
+            .getElementById('tab-editor')
+            .classList.toggle('is-active', state.activeDeckTab === 'editor');
+          document
+            .getElementById('tab-python')
+            .classList.toggle('is-active', state.activeDeckTab === 'python');
+          document
+            .getElementById('panel-editor')
+            .classList.toggle('hidden', state.activeDeckTab !== 'editor');
+          document
+            .getElementById('panel-python')
+            .classList.toggle('hidden', state.activeDeckTab !== 'python');
+
+          renderCanvas(evalRes);
+          renderEditor();
+          renderPython(evalRes);
+          renderLogs();
+        }
+
+        // Event Bindings
+        document.querySelectorAll('.topnav-link').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            var targetId = btn.getAttribute('data-scroll');
+            var tab = btn.getAttribute('data-tab');
+            if (tab) {
+              state.activeDeckTab = tab;
+              renderAll();
+            }
+            var target = document.getElementById(targetId);
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          });
+        });
+
+        document.getElementById('btn-auto-toggle').addEventListener('click', function () {
+          if (state.isAutoRunning) {
+            stopAutoRun();
+            renderAll();
+          } else {
+            startAutoRun();
+          }
+        });
+
+        document.getElementById('btn-prev').addEventListener('click', function () {
+          stopAutoRun();
+          if (state.plannedRoute.length === 0) return;
+          var evalRes = evaluateRoute(
+            state.currentLocation,
+            state.plannedRoute,
+            state.lastValidIndex
+          );
+          if (!evalRes.isOnRoute) {
+            moveToLocation(
+              state.plannedRoute[state.lastValidIndex] || state.plannedRoute[0],
+              true
+            );
+            return;
+          }
+          var prevIdx = Math.max(0, evalRes.matchedIndex - 1);
+          moveToLocation(state.plannedRoute[prevIdx], true);
+        });
+
+        document.getElementById('btn-next').addEventListener('click', function () {
+          stopAutoRun();
+          if (state.plannedRoute.length === 0) return;
+          var evalRes = evaluateRoute(
+            state.currentLocation,
+            state.plannedRoute,
+            state.lastValidIndex
+          );
+          if (!evalRes.isOnRoute) {
+            moveToLocation(
+              state.plannedRoute[state.lastValidIndex] || state.plannedRoute[0],
+              true
+            );
+            return;
+          }
+          var nextIdx = Math.min(state.plannedRoute.length - 1, evalRes.matchedIndex + 1);
+          moveToLocation(state.plannedRoute[nextIdx], true);
+        });
+
+        document.getElementById('btn-deviate').addEventListener('click', function () {
+          stopAutoRun();
+          moveToLocation(state.offRouteLocations[0] || '잘못된_골목', true);
+        });
+
+        document.getElementById('btn-reset').addEventListener('click', function () {
+          stopAutoRun();
+          if (state.plannedRoute.length > 0) {
+            state.lastValidIndex = 0;
+            moveToLocation(state.plannedRoute[0], true);
+          }
+        });
+
+        document.getElementById('interval-slider').addEventListener('input', function (e) {
+          state.intervalSeconds = Number(e.target.value);
+          document.getElementById('interval-value').textContent =
+            state.intervalSeconds.toFixed(1) + '초';
+          if (state.isAutoRunning) {
+            startAutoRun();
+          } else {
+            renderPython(
+              evaluateRoute(state.currentLocation, state.plannedRoute, state.lastValidIndex)
+            );
+          }
+        });
+
+        document.getElementById('btn-sound-toggle').addEventListener('click', function () {
+          state.soundEnabled = !state.soundEnabled;
+          renderAll();
+        });
+
+        document.getElementById('chk-random-deviation').addEventListener('change', function (e) {
+          state.simulateRandomDeviation = Boolean(e.target.checked);
+        });
+
+        document.getElementById('custom-location-form').addEventListener('submit', function (e) {
+          e.preventDefault();
+          var val = document.getElementById('custom-location-input').value.trim();
+          if (!val) return;
+          stopAutoRun();
+          moveToLocation(val, true);
+        });
+
+        document.querySelectorAll('[data-deck-tab]').forEach(function (tabBtn) {
+          tabBtn.addEventListener('click', function () {
+            state.activeDeckTab = tabBtn.getAttribute('data-deck-tab');
+            renderAll();
+          });
+        });
+
+        document.getElementById('add-waypoint-form').addEventListener('submit', function (e) {
+          e.preventDefault();
+          var input = document.getElementById('new-waypoint-input');
+          var val = input.value.trim();
+          if (!val || state.plannedRoute.indexOf(val) !== -1) return;
+          state.activePresetId = 'custom';
+          state.plannedRoute.push(val);
+          input.value = '';
+          renderAll();
+        });
+
+        document.getElementById('add-off-form').addEventListener('submit', function (e) {
+          e.preventDefault();
+          var input = document.getElementById('new-off-input');
+          var val = input.value.trim();
+          if (
+            !val ||
+            state.offRouteLocations.indexOf(val) !== -1 ||
+            state.plannedRoute.indexOf(val) !== -1
+          ) {
+            return;
+          }
+          state.offRouteLocations.push(val);
+          input.value = '';
+          renderAll();
+        });
+
+        document.getElementById('btn-copy-code').addEventListener('click', function () {
+          var formattedRoute = JSON.stringify(state.plannedRoute).replace(/,/g, ', ');
+          var safeLoc = JSON.stringify(state.currentLocation);
+          var rawCode = [
+            'import time',
+            '',
+            'def check_route(current_location, target_route):',
+            '    # 경로 이탈 감지 로직',
+            '    if current_location not in target_route:',
+            '        print("알림: 경로를 이탈했습니다! 올바른 길로 돌아가세요.")',
+            '    else:',
+            '        print("정상적으로 경로를 이동 중입니다.")',
+            '',
+            'planned_route = ' + formattedRoute,
+            'user_current_location = ' + safeLoc,
+            'time.sleep(' + state.intervalSeconds.toFixed(1) + ')',
+            'check_route(user_current_location, planned_route)',
+          ].join('\n');
+
+          var copyBtn = document.getElementById('btn-copy-code');
+          function markCopied() {
+            copyBtn.textContent = '복사됨';
+            window.setTimeout(function () {
+              copyBtn.textContent = '코드 복사';
+            }, 1600);
+          }
+
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(rawCode).then(markCopied).catch(fallbackCopy);
+          } else {
+            fallbackCopy();
+          }
+
+          function fallbackCopy() {
+            var ta = document.createElement('textarea');
+            ta.value = rawCode;
+            ta.style.position = 'fixed';
+            ta.style.opacity = '0';
+            document.body.appendChild(ta);
+            ta.select();
+            try {
+              document.execCommand('copy');
+              markCopied();
+            } catch (err) {
+              // ignore
+            }
+            document.body.removeChild(ta);
+          }
+        });
+
+        document.querySelectorAll('[data-log-filter]').forEach(function (btn) {
+          btn.addEventListener('click', function () {
+            state.logFilter = btn.getAttribute('data-log-filter');
+            document.querySelectorAll('[data-log-filter]').forEach(function (b) {
+              b.classList.toggle('is-active', b === btn);
+            });
+            renderLogs();
+          });
+        });
+
+        document.getElementById('btn-clear-logs').addEventListener('click', function () {
+          state.logs = [];
+          renderAll();
+        });
+
+        document.getElementById('btn-export-csv').addEventListener('click', function () {
+          if (state.logs.length === 0) return;
+          var header = [
+            '시각',
+            '현재 위치',
+            '경로 포함 여부',
+            '판정 상태',
+            '출력 메시지',
+            '계획 경로',
+          ];
+          var rows = state.logs.map(function (entry) {
+            return [
+              entry.timestamp,
+              entry.currentLocation,
+              entry.isOnRoute ? '포함' : '이탈',
+              entry.status === 'off_route'
+                ? '경로 이탈'
+                : entry.status === 'arrived'
+                  ? '목적지 도착'
+                  : '정상 이동',
+              entry.message,
+              entry.plannedRouteSnapshot.join(' -> '),
+            ];
+          });
+          var csv =
+            '\uFEFF' +
+            [header]
+              .concat(rows)
+              .map(function (row) {
+                return row
+                  .map(function (cell) {
+                    return '"' + String(cell).replace(/"/g, '""') + '"';
+                  })
+                  .join(',');
+              })
+              .join('\n');
+
+          var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = 'route-check-logs.csv';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(url);
+        });
+
+        function buildStandaloneHtml() {
+          var clone = document.documentElement.cloneNode(true);
+
+          // Remove any dev-server or preview-injected module scripts / overlays
+          var injected = clone.querySelectorAll(
+            'script[src*="@vite"], script[type="module"], vite-error-overlay'
+          );
+          injected.forEach(function (el) {
+            if (el.parentNode) el.parentNode.removeChild(el);
+          });
+
+          // Reset dynamic DOM containers so the downloaded file starts cleanly
+          [
+            'header-meta',
+            'auto-btn-icon',
+            'banner-icon',
+            'banner-message',
+            'banner-meta',
+            'banner-hint',
+            'route-svg',
+            'log-summary',
+            'log-table-container',
+            'verdict-icon',
+            'verdict-title',
+            'verdict-message',
+            'verdict-action-wrap',
+            'quick-buttons',
+            'preset-grid',
+            'wp-count-label',
+            'waypoint-list',
+            'off-count-label',
+            'off-chip-list',
+            'python-code-body',
+            'python-stdout',
+          ].forEach(function (id) {
+            var node = clone.querySelector('#' + id);
+            if (node) node.innerHTML = '';
+          });
+
+          var dlLabel = clone.querySelector('#download-html-label');
+          if (dlLabel) dlLabel.textContent = 'index.html 다운로드';
+
+          var autoBtnClone = clone.querySelector('#btn-auto-toggle');
+          if (autoBtnClone) autoBtnClone.className = 'btn btn-primary';
+          var autoLabelClone = clone.querySelector('#auto-btn-label');
+          if (autoLabelClone) autoLabelClone.textContent = '자동 주행 시작';
+
+          var tabEditorClone = clone.querySelector('#tab-editor');
+          if (tabEditorClone) tabEditorClone.className = 'tab-btn is-active';
+          var tabPythonClone = clone.querySelector('#tab-python');
+          if (tabPythonClone) tabPythonClone.className = 'tab-btn';
+          var panelEditorClone = clone.querySelector('#panel-editor');
+          if (panelEditorClone) panelEditorClone.className = 'panel';
+          var panelPythonClone = clone.querySelector('#panel-python');
+          if (panelPythonClone) panelPythonClone.className = 'panel hidden';
+
+          return '<!doctype html>\n' + clone.outerHTML;
+        }
+
+        document.getElementById('btn-download-html').addEventListener('click', function () {
+          var htmlContent = buildStandaloneHtml();
+          var blob = new Blob([htmlContent], { type: 'text/html;charset=utf-8;' });
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement('a');
+          a.href = url;
+          a.download = 'index.html';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          window.setTimeout(function () {
+            URL.revokeObjectURL(url);
+          }, 1000);
+
+          var label = document.getElementById('download-html-label');
+          if (label) {
+            label.textContent = '다운로드 완료';
+            window.setTimeout(function () {
+              label.textContent = 'index.html 다운로드';
+            }, 1800);
+          }
+        });
+
+        // Initial evaluation matching Python example
+        document.getElementById('custom-location-input').value = state.currentLocation;
+        appendLogEntry(
+          state.currentLocation,
+          evaluateRoute(state.currentLocation, state.plannedRoute, state.lastValidIndex)
+        );
+        renderAll();
+      })();
+    </script>
+  
+
+</body><whale-quicksearch translate="no" style="visibility: visible;"></whale-quicksearch></html>
